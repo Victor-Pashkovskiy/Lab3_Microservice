@@ -1,0 +1,98 @@
+openapi: 3.1.0
+info:
+  title: ingestion-service
+  version: 1.0.0
+  description: Синхронизация каталога с внешним источником (DNS)
+servers:
+  - url: https://api.pc-configurator.local
+tags:
+  - name: internal
+paths:
+  /internal/v1/sync:
+    post:
+      tags: [internal]
+      summary: Запустить синхронизацию каталога
+      operationId: startSync
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source: { type: string, default: "dns-shop.ru" }
+                categories:
+                  type: array
+                  items: { type: string }
+      responses:
+        '202':
+          description: Задача принята
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyncJob' }
+        '409':
+          description: Синхронизация уже идёт
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /internal/v1/sync/{jobId}:
+    get:
+      tags: [internal]
+      summary: Статус задачи синхронизации
+      operationId: getSyncJob
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Статус
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyncJob' }
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    SyncJob:
+      type: object
+      required: [id, source, status, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        source: { type: string }
+        status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, DONE, FAILED, PARTIAL_SUCCESS]
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        categoriesTotal: { type: integer }
+        categoriesDone: { type: integer }
+        itemsTotal: { type: integer }
+        itemsSkipped: { type: integer }
+        errorMessage: { type: string }
+        triggeredBy: { type: string, enum: [cron, admin, manual] }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+security:
+  - bearerAuth: []

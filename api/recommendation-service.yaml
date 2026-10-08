@@ -1,0 +1,91 @@
+openapi: 3.1.0
+info:
+  title: recommendation-service
+  version: 1.0.0
+  description: Рекомендации по обслуживанию и подсказки по сборке
+servers:
+  - url: https://api.pc-configurator.local
+tags:
+  - name: public
+  - name: internal
+paths:
+  /api/v1/builds/{id}/recommendations:
+    get:
+      tags: [public]
+      summary: Рекомендации для сборки
+      operationId: getRecommendations
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Рекомендации
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecommendationList' }
+              example:
+                buildId: "9a4d1e2c-6b7f-4a08-b3c5-0e1f2d3c4b5a"
+                items:
+                  - code: "thermal-paste"
+                    title: "Замените термопасту"
+                    text: "Раз в 1–2 года рекомендуется менять термопасту на CPU."
+                    priority: "medium"
+  /internal/v1/recommendations/rebuild:
+    post:
+      tags: [internal]
+      summary: Пересобрать рекомендации для сборки
+      operationId: rebuildRecommendations
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                buildId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Готово
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecommendationList' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Recommendation:
+      type: object
+      required: [code, title, text]
+      properties:
+        code: { type: string, example: "thermal-paste" }
+        title: { type: string }
+        text: { type: string }
+        priority: { type: string, enum: [low, medium, high] }
+    RecommendationList:
+      type: object
+      properties:
+        buildId: { type: string, format: uuid }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Recommendation' }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+security:
+  - bearerAuth: []

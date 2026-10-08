@@ -1,0 +1,152 @@
+openapi: 3.1.0
+info:
+  title: pricing-service
+  version: 1.0.0
+  description: Цены, история цен, расчёт стоимости
+servers:
+  - url: https://api.pc-configurator.local
+tags:
+  - name: public
+  - name: internal
+paths:
+  /api/v1/prices:
+    get:
+      tags: [public]
+      summary: Текущие цены по списку компонентов
+      operationId: getPrices
+      parameters:
+        - in: query
+          name: componentIds
+          required: true
+          schema:
+            type: array
+            items: { type: string, format: uuid }
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Цены
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PriceEntry' }
+  /api/v1/prices/{componentId}/history:
+    get:
+      tags: [public]
+      summary: История цен по компоненту
+      operationId: getPriceHistory
+      parameters:
+        - in: path
+          name: componentId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+      responses:
+        '200':
+          description: История
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagedPriceHistory' }
+  /internal/v1/prices:
+    get:
+      tags: [internal]
+      summary: Цены для сборки (внутренний)
+      operationId: getPricesInternal
+      parameters:
+        - in: query
+          name: componentIds
+          required: true
+          schema:
+            type: array
+            items: { type: string, format: uuid }
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Цены
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PriceEntry' }
+  /internal/v1/prices/upsert:
+    post:
+      tags: [internal]
+      summary: Upsert цен (от ingestion)
+      operationId: upsertPrices
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/PriceUpsert' }
+      responses:
+        '200':
+          description: Применено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UpsertResult' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PriceEntry:
+      type: object
+      required: [componentId, price, currency, updatedAt]
+      properties:
+        componentId: { type: string, format: uuid }
+        price: { type: number, format: float }
+        currency: { type: string, default: RUB }
+        updatedAt: { type: string, format: date-time }
+    PriceHistoryItem:
+      type: object
+      properties:
+        price: { type: number }
+        recordedAt: { type: string, format: date-time }
+    PagedPriceHistory:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PriceHistoryItem' }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer }
+    PriceUpsert:
+      type: object
+      required: [componentId, price]
+      properties:
+        componentId: { type: string, format: uuid }
+        price: { type: number }
+        source: { type: string }
+    UpsertResult:
+      type: object
+      properties:
+        created: { type: integer }
+        updated: { type: integer }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+security:
+  - bearerAuth: []
