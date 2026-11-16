@@ -1,0 +1,39 @@
+---
+config:
+  theme: redux-color
+  look: classic
+---
+sequenceDiagram
+    autonumber
+    participant C as Клиент
+    participant G as API Gateway
+    participant B as build-service
+    participant Cat as catalog-service
+    participant Comp as compatibility-service
+    participant P as pricing-service
+    participant K as Kafka
+    participant R as recommendation-service
+    participant V as visualization-service
+
+    C->>G: POST /api/v1/builds
+    G->>B: POST /api/v1/builds (JWT)
+    B->>Cat: GET /internal/v1/components/{id}
+    Cat-->>B: 200 OK { component }
+    B->>Comp: POST /internal/v1/check
+    Comp->>Cat: GET /internal/v1/components
+    Cat-->>Comp: 200 OK { components[] }
+    Comp-->>B: 200 OK { compatible: true, totalTdp }
+    Comp--)K: compatibility.checked
+    B->>P: GET /internal/v1/prices
+    P-->>B: 200 OK { prices[] }
+    B--)K: build.saved
+    K--)R: build.saved
+    R--)K: recommendation.generated
+    B-->>G: 201 Created { buildId }
+    G-->>C: 201 Created { buildId }
+    C->>G: GET /api/v1/builds/{id}/scene
+    G->>V: GET /api/v1/builds/{id}/scene
+    V->>Cat: GET /internal/v1/components
+    Cat-->>V: 200 OK { dimensions }
+    V-->>G: 200 OK { scene }
+    G-->>C: 200 OK { scene }

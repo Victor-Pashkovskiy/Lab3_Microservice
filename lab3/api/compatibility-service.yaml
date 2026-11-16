@@ -1,0 +1,109 @@
+openapi: 3.1.0
+info:
+  title: compatibility-service
+  version: 1.0.0
+  description: Проверка совместимости, расчёт TDP и тепловыделения
+servers:
+  - url: https://api.pc-configurator.local
+tags:
+  - name: public
+  - name: internal
+paths:
+  /internal/v1/check:
+    post:
+      tags: [internal]
+      summary: Проверить совместимость набора компонентов
+      operationId: checkCompatibility
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckRequest' }
+            example:
+              buildId: "9a4d1e2c-6b7f-4a08-b3c5-0e1f2d3c4b5a"
+              componentIds:
+                - "a1b2c3d4-0001-0000-0000-000000000001"
+                - "a1b2c3d4-0002-0000-0000-000000000002"
+      responses:
+        '200':
+          description: Результат проверки
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckResult' }
+              example:
+                compatible: true
+                totalTdp: 320
+                totalHeatW: 305
+                warnings: []
+                violations: []
+        '422':
+          description: Ошибка валидации
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/v1/builds/{id}/validate:
+    post:
+      tags: [public]
+      summary: Валидация сборки (публичный эндпоинт)
+      operationId: validateBuild
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Результат
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckResult' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CheckRequest:
+      type: object
+      required: [componentIds]
+      properties:
+        buildId: { type: string, format: uuid }
+        componentIds:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+    CheckResult:
+      type: object
+      required: [compatible, totalTdp, totalHeatW]
+      properties:
+        compatible: { type: boolean }
+        totalTdp: { type: integer, description: "Суммарное энергопотребление, Вт" }
+        totalHeatW: { type: integer, description: "Суммарное тепловыделение, Вт" }
+        warnings:
+          type: array
+          items: { type: string }
+          example: ["БП загружен на 90%, рекомендуется запас 30%"]
+        violations:
+          type: array
+          items:
+            type: object
+            properties:
+              rule: { type: string, example: "socket-match" }
+              message: { type: string, example: "CPU AM4 несовместим с MB LGA1700" }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+security:
+  - bearerAuth: []

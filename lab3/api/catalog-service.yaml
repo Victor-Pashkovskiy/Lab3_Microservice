@@ -1,0 +1,226 @@
+openapi: 3.1.0
+info:
+  title: catalog-service
+  version: 1.0.0
+  description: Каталог комплектующих — хранение и выдача характеристик
+servers:
+  - url: https://api.pc-configurator.local
+tags:
+  - name: public
+    description: Эндпоинты для клиента через API Gateway
+  - name: internal
+    description: Внутренние эндпоинты для сервис-сервис взаимодействия
+paths:
+  /api/v1/components:
+    get:
+      tags: [public]
+      summary: Список комплектующих с фильтрами
+      operationId: listComponents
+      parameters:
+        - in: query
+          name: category
+          schema: { type: string, enum: [CPU, GPU, MOTHERBOARD, RAM, STORAGE, PSU, CASE, COOLER] }
+        - in: query
+          name: brand
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Список комплектующих
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagedComponents' }
+              example:
+                items:
+                  - id: "a1b2c3d4-0001-0000-0000-000000000001"
+                    name: "AMD Ryzen 5 5600"
+                    category: "CPU"
+                    brand: "AMD"
+                    price: 8500
+                    specs: { socket: "AM4", tdp: 65, cores: 6 }
+                page: 0
+                size: 20
+                total: 1847
+        '400':
+          description: Неверные параметры
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/v1/components/{id}:
+    get:
+      tags: [public]
+      summary: Комплектующее по ID
+      operationId: getComponent
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Комплектующее найдено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Component' }
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/v1/categories:
+    get:
+      tags: [public]
+      summary: Список категорий
+      operationId: listCategories
+      responses:
+        '200':
+          description: Категории
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Category' }
+  /internal/v1/components:
+    get:
+      tags: [internal]
+      summary: Пакетная выдача комплектующих по ID
+      operationId: getComponentsBatch
+      parameters:
+        - in: query
+          name: ids
+          required: true
+          schema:
+            type: array
+            items: { type: string, format: uuid }
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Комплектующие
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Component' }
+  /internal/v1/components/{id}:
+    get:
+      tags: [internal]
+      summary: Комплектующее по ID (внутренний)
+      operationId: getComponentInternal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Комплектующее
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Component' }
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /internal/v1/components/upsert:
+    post:
+      tags: [internal]
+      summary: Upsert батча комплектующих (от ingestion-service)
+      operationId: upsertComponents
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/ComponentUpsert' }
+      responses:
+        '200':
+          description: Применено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UpsertResult' }
+        '422':
+          description: Ошибка валидации
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Category:
+      type: object
+      required: [code, title]
+      properties:
+        code: { type: string, enum: [CPU, GPU, MOTHERBOARD, RAM, STORAGE, PSU, CASE, COOLER] }
+        title: { type: string }
+    Component:
+      type: object
+      required: [id, name, category, brand, price, specs, dimensions]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        category: { type: string }
+        brand: { type: string }
+        price: { type: number, format: float }
+        imageUrl: { type: string, format: uri }
+        specs: { type: object, additionalProperties: true }
+        dimensions:
+          type: object
+          properties:
+            length_mm: { type: integer }
+            width_mm: { type: integer }
+            height_mm: { type: integer }
+    ComponentUpsert:
+      type: object
+      required: [source, sourceId, name, category, specs]
+      properties:
+        source: { type: string, example: "dns-shop.ru" }
+        sourceId: { type: string }
+        name: { type: string }
+        category: { type: string }
+        brand: { type: string }
+        price: { type: number }
+        specs: { type: object, additionalProperties: true }
+        dimensions: { type: object, additionalProperties: true }
+    UpsertResult:
+      type: object
+      properties:
+        created: { type: integer }
+        updated: { type: integer }
+        skipped: { type: integer }
+    PagedComponents:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Component' }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+security:
+  - bearerAuth: []

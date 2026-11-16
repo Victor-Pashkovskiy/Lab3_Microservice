@@ -1,0 +1,101 @@
+openapi: 3.1.0
+info:
+  title: visualization-service
+  version: 1.0.0
+  description: Выдача 3D-моделей и сцен
+servers:
+  - url: https://api.pc-configurator.local
+tags:
+  - name: public
+  - name: internal
+paths:
+  /api/v1/models/{componentId}:
+    get:
+      tags: [public]
+      summary: 3D-модель компонента
+      operationId: getModel
+      parameters:
+        - in: path
+          name: componentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Ссылка на модель
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Model' }
+        '404':
+          description: Не найдена
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/v1/builds/{id}/scene:
+    get:
+      tags: [public]
+      summary: 3D-сцена сборки
+      operationId: getScene
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Сцена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Scene' }
+              example:
+                buildId: "9a4d1e2c-6b7f-4a08-b3c5-0e1f2d3c4b5a"
+                sceneUrl: "https://cdn.pc-configurator.local/scenes/9a4d1e2c.glb"
+                placements:
+                  - componentId: "a1b2c3d4-0002-0000-0000-000000000002"
+                    anchor: "pcie-slot-1"
+                    dimensions_mm: { length: 245, width: 40, height: 130 }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Model:
+      type: object
+      required: [componentId, url, anchor, scaleFactor]
+      properties:
+        componentId: { type: string, format: uuid }
+        url: { type: string, format: uri }
+        anchor: { type: string, example: "pcie-slot-1" }
+        scaleFactor: { type: number, default: 1.0 }
+        dimensions_mm:
+          type: object
+          properties:
+            length: { type: integer }
+            width: { type: integer }
+            height: { type: integer }
+    Scene:
+      type: object
+      required: [buildId, sceneUrl, placements]
+      properties:
+        buildId: { type: string, format: uuid }
+        sceneUrl: { type: string, format: uri }
+        placements:
+          type: array
+          items:
+            type: object
+            properties:
+              componentId: { type: string, format: uuid }
+              anchor: { type: string }
+              dimensions_mm: { type: object, additionalProperties: true }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+security:
+  - bearerAuth: []

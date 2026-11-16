@@ -1,0 +1,132 @@
+asyncapi: 3.0.0
+info:
+  title: PC Configurator — Async Events
+  version: 1.0.0
+  description: Схемы асинхронных событий между сервисами
+servers:
+  kafka:
+    host: kafka:9092
+    protocol: kafka
+    description: Apache Kafka
+channels:
+  ingestion.batch.ready:
+    address: ingestion.batch.ready
+    messages:
+      IngestionBatchReady: { $ref: '#/components/messages/IngestionBatchReady' }
+  ingestion.failed:
+    address: ingestion.failed
+    messages:
+      IngestionFailed: { $ref: '#/components/messages/IngestionFailed' }
+  catalog.updated:
+    address: catalog.updated
+    messages:
+      CatalogUpdated: { $ref: '#/components/messages/CatalogUpdated' }
+  price.changed:
+    address: price.changed
+    messages:
+      PriceChanged: { $ref: '#/components/messages/PriceChanged' }
+  build.saved:
+    address: build.saved
+    messages:
+      BuildSaved: { $ref: '#/components/messages/BuildSaved' }
+  build.item.added:
+    address: build.item.added
+    messages:
+      BuildItemAdded: { $ref: '#/components/messages/BuildItemAdded' }
+  build.item.removed:
+    address: build.item.removed
+    messages:
+      BuildItemRemoved: { $ref: '#/components/messages/BuildItemRemoved' }
+  compatibility.checked:
+    address: compatibility.checked
+    messages:
+      CompatibilityChecked: { $ref: '#/components/messages/CompatibilityChecked' }
+  recommendation.generated:
+    address: recommendation.generated
+    messages:
+      RecommendationGenerated: { $ref: '#/components/messages/RecommendationGenerated' }
+operations:
+  onIngestionBatchReady:
+    action: receive
+    channel: { $ref: '#/channels/ingestion.batch.ready' }
+    summary: catalog-service подписан на батч
+  onCatalogUpdated:
+    action: receive
+    channel: { $ref: '#/channels/catalog.updated' }
+    summary: pricing, build, visualization подписаны
+  onPriceChanged:
+    action: receive
+    channel: { $ref: '#/channels/price.changed' }
+    summary: build-service подписан
+  onBuildSaved:
+    action: receive
+    channel: { $ref: '#/channels/build.saved' }
+    summary: recommendation-service подписан
+  onCompatibilityChecked:
+    action: receive
+    channel: { $ref: '#/channels/compatibility.checked' }
+    summary: build-service подписан
+components:
+  messages:
+    IngestionBatchReady:
+      name: IngestionBatchReady
+      title: Батч готов
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+      examples:
+        - payload:
+            eventId: "3f6c2b0e-8d1a-4c57-9e2f-5a1b7c9d0e44"
+            eventType: "ingestion.batch.ready"
+            schemaVersion: 1
+            occurredAt: "2026-10-08T03:15:00Z"
+            correlationId: "sync-job-2026-10-08"
+            payload:
+              batchId: "sha256:abc"
+              syncJobId: "job-uuid"
+              source: "dns-shop.ru"
+              itemCount: 1847
+              snapshotUrl: "s3://raw-snapshots/2026-10-08/dns.json.gz"
+              checksum: "sha256:abc"
+    IngestionFailed:
+      name: IngestionFailed
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    CatalogUpdated:
+      name: CatalogUpdated
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    PriceChanged:
+      name: PriceChanged
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    BuildSaved:
+      name: BuildSaved
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    BuildItemAdded:
+      name: BuildItemAdded
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    BuildItemRemoved:
+      name: BuildItemRemoved
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    CompatibilityChecked:
+      name: CompatibilityChecked
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    RecommendationGenerated:
+      name: RecommendationGenerated
+      contentType: application/json
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+  schemas:
+    EventEnvelope:
+      type: object
+      required: [eventId, eventType, schemaVersion, occurredAt, payload]
+      properties:
+        eventId: { type: string, format: uuid }
+        eventType: { type: string }
+        schemaVersion: { type: integer }
+        occurredAt: { type: string, format: date-time }
+        correlationId: { type: string }
+        payload: { type: object, additionalProperties: true }

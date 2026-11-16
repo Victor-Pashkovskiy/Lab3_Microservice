@@ -1,0 +1,248 @@
+openapi: 3.1.0
+info:
+  title: build-service
+  version: 1.0.0
+  description: Управление сборками ПК
+servers:
+  - url: https://api.pc-configurator.local
+tags:
+  - name: public
+  - name: internal
+paths:
+  /api/v1/builds:
+    post:
+      tags: [public]
+      summary: Создать сборку
+      operationId: createBuild
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBuildRequest' }
+            example: { name: "Игровая сборка 2026" }
+      responses:
+        '201':
+          description: Создана
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Build' }
+        '422':
+          description: Ошибка валидации
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    get:
+      tags: [public]
+      summary: Список сборок пользователя
+      operationId: listBuilds
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Список
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagedBuilds' }
+  /api/v1/builds/{id}:
+    get:
+      tags: [public]
+      summary: Сборка по ID
+      operationId: getBuild
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Найдена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Build' }
+        '404':
+          description: Не найдена
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/v1/builds/{id}/items:
+    post:
+      tags: [public]
+      summary: Добавить компонент
+      operationId: addItem
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddItemRequest' }
+      responses:
+        '200':
+          description: Добавлено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Build' }
+        '409':
+          description: Конфликт совместимости
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/v1/builds/{id}/items/{itemId}:
+    delete:
+      tags: [public]
+      summary: Удалить компонент
+      operationId: removeItem
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Удалено
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /api/v1/builds/{id}/publish:
+    post:
+      tags: [public]
+      summary: Опубликовать сборку
+      operationId: publishBuild
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Опубликована
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Build' }
+  /internal/v1/builds/{id}/items:
+    post:
+      tags: [internal]
+      summary: Добавить компонент (внутренний)
+      operationId: addItemInternal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddItemRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Build' }
+  /internal/v1/builds/{id}:
+    get:
+      tags: [internal]
+      summary: Сборка по ID (внутренний)
+      operationId: getBuildInternal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Найдена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Build' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CreateBuildRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 128 }
+    AddItemRequest:
+      type: object
+      required: [componentId, category]
+      properties:
+        componentId: { type: string, format: uuid }
+        category:
+          type: string
+          enum: [CPU, GPU, MOTHERBOARD, RAM, STORAGE, PSU, CASE, COOLER]
+    Build:
+      type: object
+      required: [id, status, items, totalPrice, totalTdp, compatible]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, SAVED, PUBLISHED, ARCHIVED, STALE]
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BuildItem' }
+        totalPrice: { type: number, format: float }
+        totalTdp: { type: integer }
+        compatible: { type: boolean }
+        expiresAt: { type: string, format: date-time }
+    BuildItem:
+      type: object
+      properties:
+        itemId: { type: string, format: uuid }
+        componentId: { type: string, format: uuid }
+        category: { type: string }
+        quantity: { type: integer, minimum: 1, default: 1 }
+        priceAtAdd: { type: number }
+    PagedBuilds:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Build' }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+security:
+  - bearerAuth: []
