@@ -4,28 +4,39 @@ import httpx
 
 app = FastAPI(title="API Gateway")
 
-@app.api_route("/api/v1/builds/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
-async def proxy_builds(path: str, request: Request):
-    if path and path.startswith("/"):
-        path = path[1:]
-    
-    url = f"http://build_service:8000/api/v1/builds/{path}" if path else "http://localhost:8004/api/v1/builds"
-    return await proxy_request(request, url)
+# --- Явные маршруты для Build Service (порт 8004) ---
 
-@app.api_route("/api/v1/components/{path:path}", methods=["GET", "POST"])
-async def proxy_catalog(path: str, request: Request):
-    if path and path.startswith("/"):
-        path = path[1:]
-    url = f"http://catalog_service:8000/api/v1/components/{path}" if path else "http://localhost:8001/api/v1/components"
-    return await proxy_request(request, url)
+@app.post("/api/v1/builds", tags=["builds"])
+async def create_build_proxy(request: Request):
+    return await proxy_request(request, "http://build_service:8000/api/v1/builds")
 
+@app.post("/api/v1/builds/{build_id}/items", tags=["builds"])
+async def add_item_proxy(build_id: str, request: Request):
+    return await proxy_request(request, f"http://build_service:8000/api/v1/builds/{build_id}/items")
+
+@app.get("/api/v1/builds/{build_id}", tags=["builds"])
+async def get_build_proxy(build_id: str, request: Request):
+    return await proxy_request(request, f"http://build_service:8000/api/v1/builds/{build_id}")
+
+
+# --- Явные маршруты для Catalog Service (порт 8001) ---
+
+@app.get("/api/v1/components", tags=["catalog"])
+async def get_components_proxy(request: Request):
+    return await proxy_request(request, "http://catalog_service:8000/api/v1/components")
+
+@app.get("/api/v1/components/{component_id}", tags=["catalog"])
+async def get_component_proxy(component_id: str, request: Request):
+    return await proxy_request(request, f"http://catalog_service:8000/api/v1/components/{component_id}")
+
+
+# --- Вспомогательная функция ---
 async def proxy_request(request: Request, url: str):
     async with httpx.AsyncClient() as client:
         body = await request.body()
         headers = dict(request.headers)
-        headers.pop("host", None) # Обязательно убираем host!
+        headers.pop("host", None)
         
-        # Добавляем follow_redirects=True, чтобы httpx сам переходил по редиректам
         response = await client.request(
             method=request.method,
             url=url,
@@ -34,7 +45,6 @@ async def proxy_request(request: Request, url: str):
             follow_redirects=True
         )
         
-        # Возвращаем ответ как есть (сохраняя статус-код и headers)
         return Response(
             content=response.content,
             status_code=response.status_code,
