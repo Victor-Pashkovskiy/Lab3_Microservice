@@ -2,7 +2,26 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
+
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
+
+async def problem_details_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        media_type="application/problem+json",
+        content={
+            "type": "about:blank",
+            "title": "Error",
+            "status": exc.status_code,
+            "detail": exc.detail,
+            "instance": request.url.path
+        }
+    )
 app = FastAPI(title="catalog-service")
+app.add_exception_handler(HTTPException, problem_details_handler)
 #  БД
 COMPONENTS_DB = {
     "cpu-1": {"id": "cpu-1", "name": "Ryzen 5", "category": "CPU", "tdp": 65, "socket": "AM4", "price": 15000},

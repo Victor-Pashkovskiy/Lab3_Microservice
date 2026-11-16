@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  gateway_service:
+    build:
+      context: .
+      dockerfile: services/gateway_service/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+    command: uvicorn services.gateway_service.main:app --host 0.0.0.0 --port 8000
+
+  catalog_service:
+    build:
+      context: .
+      dockerfile: services/catalog_service/Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - PYTHONPATH=/app
+    command: uvicorn services.catalog_service.main:app --host 0.0.0.0 --port 8000
+
+  compatibility_service:
+    build:
+      context: .
+      dockerfile: services/compatibility_service/Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - PYTHONPATH=/app
+    command: uvicorn services.compatibility_service.main:app --host 0.0.0.0 --port 8000
+
+  recommendation_service:
+    build:
+      context: .
+      dockerfile: services/recommendation_service/Dockerfile
+    ports:
+      - "8003:8000"
+    environment:
+      - PYTHONPATH=/app
+    command: uvicorn services.recommendation_service.main:app --host 0.0.0.0 --port 8000
+
+  build_service:
+    build:
+      context: .
+      dockerfile: services/build_service/Dockerfile
+    ports:
+      - "8004:8000"
+    environment:
+      - PYTHONPATH=/app
+    command: uvicorn services.build_service.main:app --host 0.0.0.0 --port 8000

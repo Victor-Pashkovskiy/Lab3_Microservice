@@ -2,6 +2,7 @@
 import asyncio
 import json
 from typing import Callable, Dict, List
+
 class InMemoryEventBus:
     def __init__(self):
         self.subscribers: Dict[str, List[Callable]] = {}

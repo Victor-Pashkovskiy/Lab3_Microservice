@@ -280,3 +280,32 @@
 - [recommendation-service.yaml](api/recommendation-service.yaml)
 - [ingestion-service.yaml](api/ingestion-service.yaml)
 - [asyncapi.yaml](api/asyncapi.yaml)
+
+
+# Лабораторная работа №4. Реализация микросервисов
+
+## Реализованный стек
+* **Язык:** Python 3.10+
+* **Фреймворк:** FastAPI (асинхронный, с автогенерацией OpenAPI).
+
+## Реализованные сервисы (5 штук)
+1. `gateway_service` (8000) — API Gateway, маршрутизатор.
+2. `catalog_service` (8001) — выдает характеристики (in-memory).
+3. `compatibility_service` (8002) — проверяет совместимость.
+4. `recommendation_service` (8003) — генерирует рекомендации.
+5. `build_service` (8004) — ядро, управляет сборками.
+
+## Моки и заглушки
+* **API Gateway:** Реализован минимально на FastAPI (делает reverse-proxy).
+* **Kafka:** Заменена на мок. `build_service` при сохранении сборки отправляет HTTP-запрос в `recommendation_service`, имитируя событие `build.saved`.
+* **Базы данных:** In-memory словари (dict).
+
+## Инструкция по запуску
+1. Активируйте venv: `.\venv\Scripts\activate`
+2. Запустите 5 сервисов (в разных терминалах из корня проекта):
+   ```bash
+   uvicorn services.gateway_service.main:app --port 8000
+   uvicorn services.catalog_service.main:app --port 8001
+   uvicorn services.compatibility_service.main:app --port 8002
+   uvicorn services.recommendation_service.main:app --port 8003
+   uvicorn services.build_service.main:app --port 8004
